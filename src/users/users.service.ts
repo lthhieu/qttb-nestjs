@@ -23,7 +23,7 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto) {
-    const { email, fullname, password } = createUserDto
+    const { email, name, password } = createUserDto
 
     //check mail exist
     let check = await this.findOneByEmail(createUserDto.email)
@@ -33,7 +33,7 @@ export class UsersService {
 
     //create new user
     let newUser = await this.userModel.create({
-      email, fullname, password: this.hashPassword(password)
+      email, name, password: this.hashPassword(password)
     })
     return newUser;
   }

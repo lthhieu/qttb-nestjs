@@ -7,12 +7,11 @@ import { MongooseConfigService } from 'src/configs/mongoose.config.service';
 import { PostsModule } from './posts/posts.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
-import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from 'src/auth/guard/jwt-auth.guard';
 import { FilesModule } from './files/files.module';
 import { UnitsModule } from './units/units.module';
 import { PositionsModule } from './positions/positions.module';
-import { UserPositionsModule } from './user-positions/user-positions.module';
+import { EventsModule } from './events/events.module';
+import { WorkflowsModule } from './workflows/workflows.module';
 
 @Module({
   imports: [
@@ -24,7 +23,8 @@ import { UserPositionsModule } from './user-positions/user-positions.module';
     FilesModule,
     UnitsModule,
     PositionsModule,
-    UserPositionsModule
+    EventsModule,
+    WorkflowsModule
   ],
   controllers: [AppController],
   providers: [AppService,],
