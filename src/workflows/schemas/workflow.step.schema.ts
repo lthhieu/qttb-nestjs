@@ -11,6 +11,6 @@ export class WorkflowStep {
     @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Unit.name })
     unit: Unit | null;
 
-    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Unit.name })
+    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Position.name })
     position: Position | null;
 }

@@ -12,6 +12,7 @@ import { UnitsModule } from './units/units.module';
 import { PositionsModule } from './positions/positions.module';
 import { EventsModule } from './events/events.module';
 import { WorkflowsModule } from './workflows/workflows.module';
+import { DatabasesModule } from './databases/databases.module';
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { WorkflowsModule } from './workflows/workflows.module';
     UnitsModule,
     PositionsModule,
     EventsModule,
-    WorkflowsModule
+    WorkflowsModule,
+    DatabasesModule
   ],
   controllers: [AppController],
   providers: [AppService,],

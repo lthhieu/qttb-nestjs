@@ -28,8 +28,8 @@ export class AuthService {
     }
 
     async afterAuthed(user: IUser, response: Response) {
-        const { _id, email, name } = user;
-        const payload = { _id, email, name };
+        const { _id, email, name, position, role, unit } = user;
+        const payload = { _id, email, name, position, role, unit };
         const refreshToken = this.refreshToken(payload);
         const userUpdateRefreshToken = await this.usersService.updateRefreshToken(refreshToken, _id);
         response.cookie('refresh-token', refreshToken, {
@@ -52,8 +52,8 @@ export class AuthService {
     async createBySocial(data: LoginBySocial, response: Response) {
         const user = await this.usersService.createBySocial(data)
         //login
-        const { _id, email, name } = user;
-        return this.afterAuthed({ _id: _id.toString(), email, name }, response)
+        const { _id, email, name, position, role, unit } = user;
+        return this.afterAuthed({ _id: _id.toString(), email, name, position: position as string | null, role, unit: unit as string | null }, response)
     }
 
     refreshToken(payload: any) {
@@ -79,17 +79,7 @@ export class AuthService {
             const user = await this.usersService.findOneByToken(token)
             if (user) {
                 const { _id, email, name } = user;
-                const payload = { _id, email, name };
-                const newRefreshToken = this.refreshToken(payload);
-                await this.usersService.updateRefreshToken(newRefreshToken, _id.toString());
-                response.cookie('refresh-token', newRefreshToken, {
-                    httpOnly: true,
-                    maxAge: ms(this.configService.get<string>('REFRESH_TOKEN_EXPIRE'))
-                })
-                return {
-                    access_token: this.jwtService.sign(payload),
-                    user: { _id, email, name }
-                };
+                return this.afterAuthed({ _id: _id.toString(), email, name }, response)
             } else {
                 throw new BadRequestException('Something went wrong')
             }

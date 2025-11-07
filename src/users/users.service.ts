@@ -61,7 +61,7 @@ export class UsersService {
       .limit(limit)
       .sort(sort)
       .select(projection)
-      .populate(population)
+      .populate(['unit', 'position'], 'name -_id')
       .exec();
 
     return {
@@ -80,7 +80,7 @@ export class UsersService {
       throw new BadRequestException('ID không hợp lệ')
     }
     const user = await this.userModel.findOne({ _id: id }).select('-password -refreshToken')
-    // .populate('cart.product', 'title price')
+      .populate(['unit', 'position'], 'name -_id')
     if (!user) {
       throw new BadRequestException('Không tìm thấy thông tin người dùng')
     }
@@ -129,7 +129,7 @@ export class UsersService {
     let isExist = await this.findOneByEmail(email)
     if (isExist) return isExist
     let newUser = await this.userModel.create({
-      email, fullname: name, image
+      email, name, image
     })
     return newUser;
   }

@@ -1,5 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import mongoose, { HydratedDocument } from 'mongoose';
+import { Position } from 'src/positions/schemas/position.schema';
+import { Unit } from 'src/units/schemas/unit.schema';
 
 export type UserDocument = HydratedDocument<User>;
 @Schema({ timestamps: true })
@@ -23,7 +25,11 @@ export class User {
     @Prop()
     refreshToken: string;
 
+    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Unit.name })
+    unit: Unit | null;
 
+    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Position.name })
+    position: Position | null;
 
 }
 
