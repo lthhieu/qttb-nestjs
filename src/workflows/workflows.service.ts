@@ -5,6 +5,7 @@ import { IUser } from 'src/users/users.interface';
 import { InjectModel } from '@nestjs/mongoose';
 import { Workflow } from './schemas/workflow.schema';
 import { Model } from 'mongoose';
+import aqp from 'api-query-params';
 
 @Injectable()
 export class WorkflowsService {
@@ -18,14 +19,53 @@ export class WorkflowsService {
     return newWorkflow;
   }
 
-  async findAll() {
-    return await this.workflowModel.find()
-      .populate('unit', 'name -_id');
+  async findAll(page: number, limit: number, qs: string) {
+    const { filter, projection, population } = aqp(qs);
+    let { sort }: { sort: any } = aqp(qs);
+
+    delete filter.page
+    delete filter.limit
+
+    page = page ? page : 1
+    limit = limit ? limit : 10
+    let skip = (page - 1) * limit
+
+    const totalItems = (await this.workflowModel.find(filter)).length
+    const totalPages = Math.ceil(totalItems / limit)
+
+    if (!sort) {
+      sort = '-updatedAt'
+    }
+
+    let workflows = await this.workflowModel.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .sort(sort)
+      .select(projection)
+      .select('-steps.order')
+      .populate(['unit'], 'name')
+      // .populate({ path: 'steps.signers.unit', select: 'name' })
+      // .populate({ path: 'steps.signers.position', select: 'name' })
+      .exec();
+
+    return {
+      meta: {
+        current: page,
+        pageSize: limit,
+        pages: totalPages,
+        total: totalItems
+      },
+      result: workflows
+    }
+    // return await this.workflowModel.find()
+    //   .populate(['unit'], 'name -_id')
+    //   .populate({ path: 'steps.signers.unit', select: 'name -_id' })
+    //   .populate({ path: 'steps.signers.position', select: 'name -_id' });
   }
 
   async findOne(id: string) {
     return await this.workflowModel.findById(id)
-      .populate('unit', 'name -_id');
+      .populate('unit', 'name');
   }
 
   async update(id: string, updateWorkflowDto: UpdateWorkflowDto) {

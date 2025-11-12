@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { HydratedDocument } from 'mongoose';
 import { Unit } from 'src/units/schemas/unit.schema';
-import { WorkflowStep } from './workflow.step.schema';
+import { WorkflowStep, WorkflowStepSchema } from './workflow.step.schema';
 
 export type WorkflowDocument = HydratedDocument<Workflow>;
 @Schema({ timestamps: true })
@@ -16,7 +16,7 @@ export class Workflow {
     @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Unit.name })
     unit?: Unit | null;
 
-    @Prop({ type: [WorkflowStep], default: [] })
+    @Prop({ type: [WorkflowStepSchema], default: [] })
     steps: WorkflowStep[];
 
 }
