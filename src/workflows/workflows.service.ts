@@ -63,6 +63,11 @@ export class WorkflowsService {
     //   .populate({ path: 'steps.signers.position', select: 'name -_id' });
   }
 
+  async findAllByUnit(user: IUser) {
+    let workflows = await this.workflowModel.find({ unit: user.unit }).populate(['unit'], 'name')
+    return workflows;
+  }
+
   async findOne(id: string) {
     return await this.workflowModel.findById(id)
       .populate('unit', 'name');

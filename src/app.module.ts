@@ -13,6 +13,7 @@ import { PositionsModule } from './positions/positions.module';
 import { EventsModule } from './events/events.module';
 import { WorkflowsModule } from './workflows/workflows.module';
 import { DatabasesModule } from './databases/databases.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { DatabasesModule } from './databases/databases.module';
     PositionsModule,
     EventsModule,
     WorkflowsModule,
-    DatabasesModule
+    DatabasesModule,
+    DocumentsModule
   ],
   controllers: [AppController],
   providers: [AppService,],

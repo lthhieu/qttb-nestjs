@@ -21,6 +21,12 @@ export class WorkflowsController {
     return this.workflowsService.findAll(+page, +limit, qs);
   }
 
+  @Get('by-unit')
+  @ResponseMessage('Tải quy trình thành công')
+  findAllByUnit(@User() user: IUser) {
+    return this.workflowsService.findAllByUnit(user);
+  }
+
   @Get(':id')
   @ResponseMessage('Tải quy trình thành công')
   findOne(@Param('id') id: string) {
