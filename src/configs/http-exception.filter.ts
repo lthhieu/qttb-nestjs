@@ -28,6 +28,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
                     "statusCode": status
                 });
         }
+
+        if (status == 422) {
+            response
+                .status(status)
+                .json({
+                    "message": exception.message,
+                    "error": "Lỗi",
+                    "statusCode": status
+                });
+        }
         response
             .status(status)
             .json({

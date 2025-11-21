@@ -14,6 +14,7 @@ import { EventsModule } from './events/events.module';
 import { WorkflowsModule } from './workflows/workflows.module';
 import { DatabasesModule } from './databases/databases.module';
 import { DocumentsModule } from './documents/documents.module';
+import { SignModule } from './sign/sign.module';
 
 @Module({
   imports: [
@@ -28,7 +29,8 @@ import { DocumentsModule } from './documents/documents.module';
     EventsModule,
     WorkflowsModule,
     DatabasesModule,
-    DocumentsModule
+    DocumentsModule,
+    SignModule
   ],
   controllers: [AppController],
   providers: [AppService,],

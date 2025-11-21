@@ -25,6 +25,9 @@ export class User {
     @Prop()
     refreshToken: string;
 
+    @Prop()
+    p12: string;
+
     @Prop({ type: mongoose.Schema.Types.ObjectId, ref: Unit.name })
     unit: Unit | null;
 

@@ -54,7 +54,12 @@ export class MulterConfigService implements MulterOptionsFactory {
             }),
             limits: { fileSize: 2 * 1024 * 1024 }, //20MB
             fileFilter: (req, file, cb) => {
-                const allowedFileTypes = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'docx']
+                const allowedFileTypes: string[] = []
+                if (req.headers?.folder_type == 'certs') {
+                    allowedFileTypes.push('p12')
+                } else {
+                    allowedFileTypes.push('pdf')
+                }
                 const fileExtension = file.originalname.split('.').pop()!.toLowerCase();
                 const isValidFileType = allowedFileTypes.includes(fileExtension);
                 if (!isValidFileType) {
