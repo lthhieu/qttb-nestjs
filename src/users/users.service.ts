@@ -61,7 +61,7 @@ export class UsersService {
       .limit(limit)
       .sort(sort)
       .select(projection)
-      .populate(['unit', 'position'], 'name -_id')
+      // .populate(['unit', 'position'], 'name -_id')
       .exec();
 
     return {

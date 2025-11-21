@@ -15,6 +15,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
 import { DatabasesModule } from './databases/databases.module';
 import { DocumentsModule } from './documents/documents.module';
 import { SignModule } from './sign/sign.module';
+import { RolesModule } from './roles/roles.module';
 
 @Module({
   imports: [
@@ -30,7 +31,8 @@ import { SignModule } from './sign/sign.module';
     WorkflowsModule,
     DatabasesModule,
     DocumentsModule,
-    SignModule
+    SignModule,
+    RolesModule
   ],
   controllers: [AppController],
   providers: [AppService,],

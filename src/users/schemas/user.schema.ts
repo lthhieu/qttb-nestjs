@@ -19,7 +19,7 @@ export class User {
     @Prop()
     image: string;
 
-    @Prop({ default: 'USER' })
+    @Prop()
     role: string;
 
     @Prop()
