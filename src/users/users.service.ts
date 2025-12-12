@@ -125,11 +125,11 @@ export class UsersService {
   }
 
   async createBySocial(loginBySocial: LoginBySocial) {
-    const { email, image, name } = loginBySocial
+    const { email, image, name, p12, position, role, unit } = loginBySocial
     let isExist = await this.findOneByEmail(email)
     if (isExist) return isExist
     let newUser = await this.userModel.create({
-      email, name, image
+      email, image, name, p12, position, role, unit
     })
     return newUser;
   }

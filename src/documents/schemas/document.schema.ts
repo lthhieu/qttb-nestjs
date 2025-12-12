@@ -29,7 +29,7 @@ export class Document {
     @Prop()
     cur_link: string;
 
-    @Prop({ default: 1 })
+    @Prop({ default: 0 })
     cur_step: number
 
     @Prop({ type: String, enum: EStatus, default: EStatus.pending })

@@ -13,6 +13,6 @@ export class DocumentInfo {
     error?: string;
 
     @Prop({ type: [UserInfo], default: [] })
-    singers: UserInfo[];
+    signers: UserInfo[];
 }
 export const DocumentInfoSchema = SchemaFactory.createForClass(DocumentInfo);

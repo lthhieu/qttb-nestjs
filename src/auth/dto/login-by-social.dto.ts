@@ -8,4 +8,12 @@ export class LoginBySocial {
     @IsNotEmpty({ message: 'Ảnh đại diện không được để trống' })
     @IsOptional()
     image: string;
+    @IsOptional()
+    position: string;
+    @IsOptional()
+    unit: string;
+    @IsOptional()
+    role: string;
+    @IsOptional()
+    p12: string;
 }

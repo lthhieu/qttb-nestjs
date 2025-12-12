@@ -6,4 +6,4 @@ import { SignController } from './sign.controller';
   controllers: [SignController],
   providers: [SignService],
 })
-export class SignModule {}
+export class SignModule { }
