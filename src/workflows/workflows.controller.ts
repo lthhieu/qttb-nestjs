@@ -15,17 +15,19 @@ export class WorkflowsController {
     return this.workflowsService.create(createWorkflowDto, user);
   }
 
+  @Get('by-unit')
+  @ResponseMessage('Tải quy trình thành công')
+  findAllByUnit(@Query('page') page: string, @Query('limit') limit: string, @Query() qs: string, @User() user: IUser) {
+    return this.workflowsService.findAllByUnit(+page, +limit, qs, user);
+  }
+
   @Get()
   @ResponseMessage('Tải quy trình thành công')
   findAll(@Query('page') page: string, @Query('limit') limit: string, @Query() qs: string) {
     return this.workflowsService.findAll(+page, +limit, qs);
   }
 
-  @Get('by-unit')
-  @ResponseMessage('Tải quy trình thành công')
-  findAllByUnit(@User() user: IUser) {
-    return this.workflowsService.findAllByUnit(user);
-  }
+
 
   @Get(':id')
   @ResponseMessage('Tải quy trình thành công')

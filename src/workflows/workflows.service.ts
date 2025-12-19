@@ -63,9 +63,45 @@ export class WorkflowsService {
     //   .populate({ path: 'steps.signers.position', select: 'name -_id' });
   }
 
-  async findAllByUnit(user: IUser) {
-    let workflows = await this.workflowModel.find({ unit: user.unit }).populate(['unit'], 'name')
-    return workflows;
+  async findAllByUnit(page: number, limit: number, qs: string, user: IUser) {
+    // let workflows = await this.workflowModel.find({ unit: user.unit }).populate(['unit'], 'name')
+    const { filter, projection, population } = aqp(qs);
+    let { sort }: { sort: any } = aqp(qs);
+
+    delete filter.page
+    delete filter.limit
+
+    page = page ? page : 1
+    limit = limit ? limit : 10
+    let skip = (page - 1) * limit
+
+    const totalItems = (await this.workflowModel.find({ unit: user.unit })).length
+    const totalPages = Math.ceil(totalItems / limit)
+
+    if (!sort) {
+      sort = '-updatedAt'
+    }
+
+    let workflows = await this.workflowModel.find({ unit: user.unit })
+      .skip(skip)
+      .limit(limit)
+      .sort(sort)
+      .select(projection)
+      .select('-steps.order')
+      .populate(['unit'], 'name')
+      // .populate({ path: 'steps.signers.unit', select: 'name' })
+      // .populate({ path: 'steps.signers.position', select: 'name' })
+      .exec();
+
+    return {
+      meta: {
+        current: page,
+        pageSize: limit,
+        pages: totalPages,
+        total: totalItems
+      },
+      result: workflows
+    }
   }
 
   async findOne(id: string) {

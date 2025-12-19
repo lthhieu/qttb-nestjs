@@ -9,5 +9,6 @@ import { Workflow, WorkflowSchema } from './schemas/workflow.schema';
     MongooseModule.forFeature([{ name: Workflow.name, schema: WorkflowSchema }])],
   controllers: [WorkflowsController],
   providers: [WorkflowsService],
+  // exports:[Work]
 })
 export class WorkflowsModule { }

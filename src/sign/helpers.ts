@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import forge from 'node-forge';
 
 export function extractInfoFromP12(p12Buffer: Buffer, password: string) {
@@ -46,11 +47,7 @@ export function extractInfoFromP12(p12Buffer: Buffer, password: string) {
 
     } catch (error) {
         console.error('Lỗi đọc P12:', error);
-        return {
-            commonName: 'Unknown User',
-            organization: '',
-            email: '',
-        };
+        throw new BadRequestException('Mật khẩu không hợp lệ')
     }
 }
 

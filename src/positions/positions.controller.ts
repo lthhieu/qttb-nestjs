@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { PositionsService } from './positions.service';
 import { CreatePositionDto } from './dto/create-position.dto';
 import { UpdatePositionDto } from './dto/update-position.dto';
@@ -16,8 +16,8 @@ export class PositionsController {
 
   @Get()
   @ResponseMessage('Tải thông tin vị trí thành công')
-  findAll() {
-    return this.positionsService.findAll();
+  findAll(@Query('page') page: string, @Query('limit') limit: string, @Query() qs: string) {
+    return this.positionsService.findAll(+page, +limit, qs);
   }
 
   @Get(':id')

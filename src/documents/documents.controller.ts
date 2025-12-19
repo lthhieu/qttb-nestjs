@@ -16,10 +16,22 @@ export class DocumentsController {
     return this.documentsService.create(createDocumentDto, user);
   }
 
+  @Get('by-unit')
+  @ResponseMessage('Tải quy trình thành công')
+  findAllByUnit(@Query('page') page: string, @Query('limit') limit: string, @Query() qs: string, @User() user: IUser) {
+    return this.documentsService.findAllByUnit(+page, +limit, qs, user);
+  }
+
   @Get()
   @ResponseMessage('Tải dữ liệu tài liệu thành công')
-  findAll(@Query('page') page: string, @Query('limit') limit: string, @Query() qs: string) {
-    return this.documentsService.findAll(+page, +limit, qs);
+  findAll(@Query('page') page: string, @Query('limit') limit: string, @Query() qs: string, @User() user: IUser) {
+    return this.documentsService.findAll(+page, +limit, qs, user);
+  }
+
+  @Get('all-confirm')
+  @ResponseMessage('Tải dữ liệu tài liệu thành công')
+  findAllConfirm(@Query('page') page: string, @Query('limit') limit: string, @Query() qs: string, @User() user: IUser) {
+    return this.documentsService.findAllConfirm(+page, +limit, qs, user);
   }
 
   @Get(':id')

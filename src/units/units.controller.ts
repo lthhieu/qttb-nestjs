@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { UnitsService } from './units.service';
 import { CreateUnitDto } from './dto/create-unit.dto';
 import { UpdateUnitDto } from './dto/update-unit.dto';
@@ -16,8 +16,8 @@ export class UnitsController {
 
   @Get()
   @ResponseMessage('Tải thông tin đơn vị thành công')
-  findAll() {
-    return this.unitsService.findAll();
+  findAll(@Query('page') page: string, @Query('limit') limit: string, @Query() qs: string) {
+    return this.unitsService.findAll(+page, +limit, qs);
   }
 
   @Get(':id')

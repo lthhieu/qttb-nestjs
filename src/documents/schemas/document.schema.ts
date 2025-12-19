@@ -5,10 +5,10 @@ import { UserInfo, UserInfoSchema } from 'src/documents/schemas/user.info.schema
 import { Workflow } from 'src/workflows/schemas/workflow.schema';
 
 export enum EStatus {
-    pending = 'pending',
-    progress = 'progress',
-    confirmed = 'confirmed',
-    rejected = 'rejected'
+    pending = 'vừa tải lên',
+    progress = 'đang trình ký',
+    confirmed = 'đã hoàn thành',
+    rejected = 'từ chối'
 }
 
 export type DocumentDocument = HydratedDocument<Document>;

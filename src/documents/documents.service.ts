@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto, UpdateInfoDocumentDto } from './dto/update-document.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { Document } from 'src/documents/schemas/document.schema';
+import { Document, EStatus } from 'src/documents/schemas/document.schema';
 import mongoose, { Model } from 'mongoose';
 import type { IUser } from 'src/users/users.interface';
 import aqp from 'api-query-params';
@@ -16,10 +16,12 @@ import { SignAndUpdateDto } from 'src/documents/dto/sign-and-update.dto';
 import { P12Signer } from '@signpdf/signer-p12';
 import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import signpdf from '@signpdf/signpdf';
+import { Workflow } from 'src/workflows/schemas/workflow.schema';
 
 @Injectable()
 export class DocumentsService {
-  constructor(@InjectModel(Document.name) private documentModel: Model<Document>,) { }
+  constructor(@InjectModel(Document.name) private documentModel: Model<Document>,
+    @InjectModel(Workflow.name) private workflowModel: Model<Workflow>) { }
 
   async create(createDocumentDto: CreateDocumentDto, user: IUser) {
     const { name, workflow, link } = createDocumentDto
@@ -41,7 +43,7 @@ export class DocumentsService {
     return newDocument;
   }
 
-  async findAll(page: number, limit: number, qs: string) {
+  async findAllByUnit(page: number, limit: number, qs: string, user: IUser) {
     const { filter, projection, population } = aqp(qs);
     let { sort }: { sort: any } = aqp(qs);
 
@@ -52,37 +54,22 @@ export class DocumentsService {
     limit = limit ? limit : 10
     let skip = (page - 1) * limit
 
-    const totalItems = (await this.documentModel.find(filter)).length
+    const totalItems = (await this.documentModel.find({ unit: user.unit })).length
     const totalPages = Math.ceil(totalItems / limit)
 
     if (!sort) {
       sort = '-updatedAt'
     }
 
-    let documents = await this.documentModel.find(filter)
+    let workflows = await this.documentModel.find({ unit: user.unit })
       .skip(skip)
       .limit(limit)
       .sort(sort)
       .select(projection)
-      .populate(['author.user'], 'name')
-      .populate(['author.unit'], 'name')
-      .populate(['author.position'], 'name')
-      .populate({
-        path: 'workflow',
-        select: 'steps',
-        populate: {
-          path: 'steps.signers.unit steps.signers.position',
-          select: 'name'
-        }
-      })
-      .populate({
-        path: 'info',
-        select: 'signers',
-        populate: {
-          path: 'signers.unit signers.user signers.position',
-          select: 'name'
-        }
-      })
+      .select('-steps.order')
+      .populate(['unit'], 'name')
+      // .populate({ path: 'steps.signers.unit', select: 'name' })
+      // .populate({ path: 'steps.signers.position', select: 'name' })
       .exec();
 
     return {
@@ -92,9 +79,199 @@ export class DocumentsService {
         pages: totalPages,
         total: totalItems
       },
-      result: documents
+      result: workflows
     }
   }
+
+  async findAll(page: number, limit: number, qs: string, currentUser: IUser) {
+    const { filter, projection } = aqp(qs);
+    let { sort } = aqp(qs);
+
+    delete filter.page;
+    delete filter.limit;
+
+    page = page || 1;
+    limit = limit || 10;
+    const skip = (page - 1) * limit;
+
+    if (!sort) sort = '-updatedAt' as any;
+
+    /**
+     * 1️⃣ LẤY WORKFLOW + STEP MÀ USER ĐƯỢC QUYỀN KÝ
+     */
+    const workflows = await this.workflowModel
+      .find({
+        steps: {
+          $elemMatch: {
+            order: { $gte: 0 }, // để match step bất kỳ, lọc order ở bước sau
+            signers: {
+              $elemMatch: {
+                $and: [
+                  currentUser.unit
+                    ? { unit: currentUser.unit }
+                    : {},
+                  currentUser.position
+                    ? { position: currentUser.position }
+                    : {}
+                ]
+              }
+            }
+          }
+        }
+      })
+      .lean();
+
+    /**
+     * 2️⃣ MAP workflowId + order hợp lệ
+     */
+    const workflowStepMap = new Map<string, number[]>();
+
+    workflows.forEach(wf => {
+      wf.steps.forEach(step => {
+        const matchSigner = step.signers.some(s =>
+          (!currentUser.unit || s.unit?.toString() === currentUser.unit.toString()) &&
+          (!currentUser.position || s.position?.toString() === currentUser.position.toString())
+        );
+
+        if (matchSigner) {
+          const key = wf._id.toString();
+          if (!workflowStepMap.has(key)) {
+            workflowStepMap.set(key, []);
+          }
+          workflowStepMap.get(key)!.push(step.order);
+        }
+      });
+    });
+
+    /**
+     * 3️⃣ BUILD OR CONDITION CHO "ĐẾN LƯỢT KÝ"
+     */
+    const signingConditions = Array.from(workflowStepMap.entries()).map(
+      ([workflowId, orders]) => ({
+        workflow: workflowId,
+        cur_step: { $in: orders }
+      })
+    );
+
+    /**
+     * 4️⃣ FILTER CHÍNH
+     */
+    const customFilter = {
+      $or: [
+        // 1. Văn bản do mình tạo
+        { 'author.user': currentUser._id },
+
+        // 2. Đến lượt mình ký
+        {
+          cur_status: { $in: [EStatus.pending, EStatus.progress] },
+          $or: signingConditions
+        },
+
+      ]
+    };
+
+    const finalFilter =
+      filter && Object.keys(filter).length > 0
+        ? { $and: [filter, customFilter] }
+        : customFilter;
+
+    /**
+     * 5️⃣ QUERY DOCUMENT
+     */
+    const totalItems = await this.documentModel.countDocuments(finalFilter);
+
+    const documents = await this.documentModel
+      .find(finalFilter)
+      .skip(skip)
+      .limit(limit)
+      .sort(sort as any)
+      .select(projection)
+      .populate('author.user author.unit author.position', 'name')
+      .populate({
+        path: 'workflow',
+        select: 'steps'
+      })
+      .populate({
+        path: 'info.signers.user info.signers.unit info.signers.position',
+        select: 'name'
+      })
+      .lean();
+
+    return {
+      meta: {
+        current: page,
+        pageSize: limit,
+        pages: Math.ceil(totalItems / limit),
+        total: totalItems
+      },
+      result: documents
+    };
+  }
+
+  async findAllConfirm(
+    page: number,
+    limit: number,
+    qs: string,
+    currentUser: IUser
+  ) {
+    const { filter, projection } = aqp(qs);
+    let { sort } = aqp(qs);
+
+    delete filter.page;
+    delete filter.limit;
+
+    page = page || 1;
+    limit = limit || 10;
+    const skip = (page - 1) * limit;
+
+    if (!sort) sort = '-updatedAt' as any;
+
+    /**
+     * FILTER CỐ ĐỊNH
+     */
+    const customFilter = {
+      cur_status: { $in: [EStatus.progress, EStatus.confirmed] },
+      'info.signers.user': currentUser._id
+    };
+
+    const finalFilter =
+      filter && Object.keys(filter).length > 0
+        ? { $and: [filter, customFilter] }
+        : customFilter;
+
+    /**
+     * COUNT
+     */
+    const totalItems = await this.documentModel.countDocuments(finalFilter);
+
+    /**
+     * QUERY
+     */
+    const documents = await this.documentModel
+      .find(finalFilter)
+      .skip(skip)
+      .limit(limit)
+      .sort(sort as any)
+      .select(projection)
+      .populate('author.user author.unit author.position', 'name')
+      .populate({
+        path: 'info.signers.user info.signers.unit info.signers.position',
+        select: 'name'
+      })
+      .lean();
+
+    return {
+      meta: {
+        current: page,
+        pageSize: limit,
+        pages: Math.ceil(totalItems / limit),
+        total: totalItems
+      },
+      result: documents
+    };
+  }
+
+
 
   async findOne(id: string) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -197,11 +374,14 @@ export class DocumentsService {
     // 2. KIỂM TRA QUYỀN KÝ
     const currentStepIndex = document.cur_step || 0;
     const currentStep = (document.workflow as any)?.steps?.[currentStepIndex];
+    // console.log(currentStepIndex, currentStep)
 
     if (currentStep) {
       const isAuthorized = currentStep.signers.some((s: any) => {
-        const matchUnit = !s.unit || s.unit.toString() === user.unit?.toString();
-        const matchPosition = !s.position || s.position.toString() === user.position?.toString();
+
+        const matchUnit = !s.unit || s.unit._id.toString() === user.unit?.toString();
+        const matchPosition = !s.position || s.position._id.toString() === user.position?.toString();
+
         return matchUnit && matchPosition;
       });
 
@@ -280,7 +460,7 @@ export class DocumentsService {
     // 4. CẬP NHẬT WORKFLOW
     const totalSteps = (document.workflow as any)?.steps?.length || 0;
     const nextStep = currentStepIndex + 1;
-    const newStatus = nextStep >= totalSteps ? 'confirmed' : 'progress';
+    const newStatus = nextStep >= totalSteps ? 'đã hoàn thành' : 'đang trình ký';
     const newVersion = (document.cur_version || 0);
 
     // Sửa lỗi updateOne – thêm arrayFilters nếu cần
