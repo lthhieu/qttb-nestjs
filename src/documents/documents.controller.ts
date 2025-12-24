@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
-import { UpdateDocumentDto, UpdateInfoDocumentDto } from './dto/update-document.dto';
+import { RejectDocumentDto, UpdateDocumentDto, UpdateInfoDocumentDto } from './dto/update-document.dto';
 import { ResponseMessage, User } from 'src/configs/custom.decorator';
 import type { IUser } from 'src/users/users.interface';
 import { SignAndUpdateDto } from 'src/documents/dto/sign-and-update.dto';
@@ -58,7 +58,7 @@ export class DocumentsController {
     return this.documentsService.remove(id);
   }
 
-  @Patch('test-update-info/:id')
+  @Patch('sign-update-info/:id')
   @ResponseMessage('Ký số và cập nhật quy trình thành công!')
   async signAndUpdateInfo(
     @Param('id') id: string,
@@ -66,5 +66,26 @@ export class DocumentsController {
     @User() user: IUser,
   ) {
     return this.documentsService.signAndUpdateInfo(id, dto, user);
+  }
+
+  @Patch('reject/:id')
+  @ResponseMessage('Từ chối văn bản thành công')
+  async rejectDocument(
+    @Param('id') id: string,
+    @Body() body: RejectDocumentDto,
+    @User() user: IUser,
+  ) {
+    return this.documentsService.rejectDocument(id, body.reason, user);
+  }
+
+  // Route Tạo version mới (sau khi bị reject)
+  @Post('new-version/:id')
+  @ResponseMessage('Tạo version mới thành công')
+  async createNewVersion(
+    @Param('id') id: string,
+    @Body() body: { new_link: string }, // link PDF mới (upload lại)
+    @User() user: IUser,
+  ) {
+    return this.documentsService.createNewVersion(id, body.new_link, user);
   }
 }

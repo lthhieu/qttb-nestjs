@@ -3,15 +3,15 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Public, ResponseMessage } from 'src/configs/custom.decorator';
+import { LoginBySocial } from 'src/auth/dto/login-by-social.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
-  @Public()
   @Post()
   @ResponseMessage('Tạo mới người dùng thành công')
-  create(@Body() createUserDto: CreateUserDto) {
+  create(@Body() createUserDto: LoginBySocial) {
     return this.usersService.create(createUserDto);
   }
 

@@ -6,7 +6,6 @@ import { Document, EStatus } from 'src/documents/schemas/document.schema';
 import mongoose, { Model } from 'mongoose';
 import type { IUser } from 'src/users/users.interface';
 import aqp from 'api-query-params';
-import { SignDocumentDto } from 'src/sign/dto/sign.document.dto';
 import { join } from 'path';
 import { extractInfoFromP12, getRootPath, removeVietnameseTones } from 'src/sign/helpers';
 import fs from 'fs'
@@ -230,7 +229,7 @@ export class DocumentsService {
      * FILTER CỐ ĐỊNH
      */
     const customFilter = {
-      cur_status: { $in: [EStatus.progress, EStatus.confirmed] },
+      cur_status: { $in: [EStatus.progress, EStatus.confirmed, EStatus.rejected] },
       'info.signers.user': currentUser._id
     };
 
@@ -270,8 +269,6 @@ export class DocumentsService {
       result: documents
     };
   }
-
-
 
   async findOne(id: string) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -474,18 +471,12 @@ export class DocumentsService {
           cur_version: newVersion,
         } as any,
         $push: {
-          info: {
-            version: newVersion,
-            link: cur_link || document.cur_link,
-            signers: [
-              {
-                user: user._id,
-                unit: user.unit,
-                position: user.position,
-              },
-            ],
-          },
-        },
+          [`info.${document.cur_version}.signers`]: {
+            user: user._id,
+            unit: user.unit,
+            position: user.position,
+          }
+        }
       },
     );
 
@@ -498,6 +489,96 @@ export class DocumentsService {
         status: newStatus,
       },
     };
+  }
+
+  // Method Reject văn bản
+  async rejectDocument(id: string, reason: string, user: IUser) {
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException('Vui lòng nhập lý do từ chối');
+    }
+
+    const document = await this.documentModel.findById(id);
+    if (!document) throw new BadRequestException('Không tìm thấy văn bản');
+
+    if (document.cur_status === EStatus.confirmed) {
+      throw new BadRequestException('Văn bản đã hoàn thành, không thể từ chối');
+    }
+
+    if (document.cur_status === EStatus.rejected) {
+      throw new BadRequestException('Văn bản đã bị từ chối trước đó');
+    }
+
+    // 2. KHÔNG CHO REJECT NẾU USER ĐÃ KÝ Ở BẤT KỲ BƯỚC NÀO (có tên trong info.signers)
+    const hasSigned = document.info.some(infoItem =>
+      infoItem.signers.some(signer => signer.user?.toString() === user._id.toString())
+    );
+
+    if (hasSigned) {
+      throw new BadRequestException('Bạn đã ký văn bản này rồi, không thể từ chối');
+    }
+
+    // PUSH USER VÀO SIGNERS NHƯ "ĐÃ KÝ" (nhưng reject)
+    const rejectSigner = {
+      user: user._id,
+      unit: user.unit,
+      position: user.position,
+    };
+
+    // Cập nhật version hiện tại: ghi lý do reject vào error
+    const result = await this.documentModel.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          cur_status: EStatus.rejected,
+          [`info.${document.cur_version}.error`]: reason.trim(),
+        },
+        $push: {
+          [`info.${document.cur_version}.signers`]: rejectSigner // push user vào signers version hiện tại
+        }
+      },
+      { new: true }
+    );
+
+    return { message: 'Từ chối văn bản thành công', data: result };
+  }
+
+  // Method Tạo version mới (giữ nguyên document, chỉ push vào info)
+  async createNewVersion(id: string, newLink: string, user: IUser) {
+    if (!newLink) {
+      throw new BadRequestException('Vui lòng upload file PDF mới');
+    }
+
+    const document = await this.documentModel.findById(id);
+    if (!document) throw new BadRequestException('Không tìm thấy văn bản cũ');
+
+    if (document.cur_status !== EStatus.rejected) {
+      throw new BadRequestException('Chỉ được tạo version mới khi văn bản bị từ chối');
+    }
+
+    const newVersion = document.cur_version + 1;
+
+    // Cập nhật document hiện tại: push version mới vào info + reset các field
+    const updatedDoc = await this.documentModel.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          cur_version: newVersion,
+          cur_link: newLink,
+          cur_step: 0,
+          cur_status: EStatus.pending, // 'vừa tải lên'
+        },
+        $push: {
+          info: {
+            version: newVersion,
+            link: newLink,
+            signers: []
+          }
+        }
+      },
+      { new: true } // trả về document sau update
+    );
+
+    return updatedDoc;
   }
 
 }

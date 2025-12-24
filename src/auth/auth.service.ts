@@ -52,7 +52,7 @@ export class AuthService {
     async createBySocial(data: LoginBySocial, response: Response) {
         const isExist = await this.usersService.findOneByEmail(data.email)
         if (!isExist) throw new BadRequestException('Email của bạn không tồn tại trong hệ thống. Vui lòng liên hệ quản trị viên')
-        // console.log(isExist)
+
         const user = await this.usersService.createBySocial(data)
         // console.log(user)
         //login

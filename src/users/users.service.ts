@@ -22,18 +22,18 @@ export class UsersService {
     return compareSync(pass, hash)
   }
 
-  async create(createUserDto: CreateUserDto) {
-    const { email, name, password } = createUserDto
+  async create(createUserDto: LoginBySocial) {
+    const { email, name, p12, position, role, unit } = createUserDto
 
     //check mail exist
     let check = await this.findOneByEmail(createUserDto.email)
     if (check) {
-      throw new BadRequestException('Email đã tồn tại trên hệ thống. Vui lòng đăng nhập!')
+      throw new BadRequestException('Email đã tồn tại trên hệ thống. Vui lòng kiểm tra lại!')
     }
 
     //create new user
     let newUser = await this.userModel.create({
-      email, name, password: this.hashPassword(password)
+      email, name, p12, position, role, unit
     })
     return newUser;
   }

@@ -21,3 +21,8 @@ export class UpdateInfoDocumentDto {
     @IsNotEmpty({ message: 'Bước không được để trống' })
     cur_step: number;
 }
+
+export class RejectDocumentDto {
+    @IsNotEmpty({ message: 'Lý do không được để trống' })
+    reason: string;
+}
