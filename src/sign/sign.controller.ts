@@ -42,7 +42,6 @@ export class SignController {
 
     // 1. LẤY THÔNG TIN NGƯỜI KÝ
     const certInfo = extractInfoFromP12(p12Buffer, password)
-    // console.log('>>> Thông tin người ký:', certInfo);
 
     // 2. LOAD PDF VÀ CHUẨN BỊ VISUAL
     const pdfDoc = await PDFDocument.load(pdfBuffer);
@@ -79,8 +78,6 @@ export class SignController {
     // Tạo nội dung text (Hiển thị có dấu bình thường)
     const dateStr = new Date().toISOString().split('T')[0];
     const text = `Ký số bởi: ${certInfo.commonName}\n` +
-      `Email: ${certInfo.email}\n` +
-      `Đơn vị: ${certInfo.organization}\n` +
       `Ngày: ${dateStr}`;
 
     // Vẽ text
@@ -88,9 +85,18 @@ export class SignController {
       x: Number(SIGN_X) + 5,
       y: Number(SIGN_Y) + 55, // Canh chỉnh tọa độ Y cho chữ nằm giữa khung
       size: 10,
-      font: customFont, // <--- QUAN TRỌNG: Phải khai báo font ở đây thì mới hiển thị được tiếng Việt
+      font: customFont,
       color: rgb(0, 0, 0),
       lineHeight: 12,
+    });
+
+    // === THÊM DẤU TICK XANH ĐÂY ===
+    pageToSign.drawText('✔', {
+      x: Number(SIGN_X) + SIGN_WIDTH - 25, // Đặt bên phải khung
+      y: Number(SIGN_Y) + SIGN_HEIGHT / 2 - 5, // Giữa chiều cao khung
+      size: 20, // Kích thước tick to đẹp
+      font: customFont,
+      color: rgb(0, 128, 0), // Màu xanh lá
     });
 
     // 4. TẠO PLACEHOLDER (WIDGET ẨN ĐỂ CHỨA CHỮ KÝ SỐ)

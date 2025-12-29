@@ -9,11 +9,13 @@ import aqp from 'api-query-params';
 import { join } from 'path';
 import { extractInfoFromP12, getRootPath, removeVietnameseTones } from 'src/sign/helpers';
 import fs from 'fs'
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument, rgb } from '@adnsistemas/pdf-lib';
+// import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { SignAndUpdateDto } from 'src/documents/dto/sign-and-update.dto';
 import { P12Signer } from '@signpdf/signer-p12';
-import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
+import { pdflibAddPlaceholder } from '@adnsistemas/placeholder-pdf-lib';
+// import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import signpdf from '@signpdf/signpdf';
 import { Workflow } from 'src/workflows/schemas/workflow.schema';
 
@@ -332,23 +334,48 @@ export class DocumentsService {
 
   }
 
-  async remove(id: string) {
-    return await this.documentModel.findByIdAndDelete(id);
+  async remove(id: string) { // Thêm user để check quyền (nếu cần)
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('ID không hợp lệ');
+    }
+
+    const document = await this.documentModel.findById(id);
+    if (!document) {
+      throw new BadRequestException('Không tìm thấy tài liệu');
+    }
+
+    // Kiểm tra quyền xóa (chỉ author hoặc admin)
+    // if (document.author.user!.toString() !== user._id.toString() && !user.role?.includes('admin')) {
+    //   throw new ForbiddenException('Bạn không có quyền xóa tài liệu này');
+    // }
+
+    // 2. Xóa tất cả file PDF của các version (từ mảng info)
+    try {
+      for (const infoItem of document.info) {
+        if (infoItem.link) {
+          const fileName = infoItem.link.split('name=')[1]; // Lấy tên file từ link
+          const pdfPath = join(getRootPath(), `public/files/documents/${fileName}`);
+
+          if (fs.existsSync(pdfPath)) {
+            fs.unlinkSync(pdfPath);
+            console.log(`Đã xóa file version cũ: ${fileName}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi xóa file PDF version cũ:', err);
+      // Không throw, chỉ log để tiếp tục xóa DB
+    }
+
+    // 3. Xóa record document trong DB
+    await this.documentModel.findByIdAndDelete(id);
+
+    return { message: 'Xóa toàn bộ tài liệu và các version thành công' };
   }
 
+
   async signAndUpdateInfo(id: string, dto: SignAndUpdateDto, user: IUser) {
-    const {
-      password,
-      p12_filename,
-      document_filename,
-      SIGN_X,
-      SIGN_Y,
-      SIGN_WIDTH = 250,
-      SIGN_HEIGHT = 80,
-      page = 0,
-      cur_link,
-      cur_version,
-    } = dto;
+    const { password, p12_filename, document_filename, SIGN_X, SIGN_Y, SIGN_WIDTH = 250, SIGN_HEIGHT = 80, page = 0, cur_link, cur_version } = dto;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new BadRequestException('ID tài liệu không hợp lệ');
@@ -371,14 +398,11 @@ export class DocumentsService {
     // 2. KIỂM TRA QUYỀN KÝ
     const currentStepIndex = document.cur_step || 0;
     const currentStep = (document.workflow as any)?.steps?.[currentStepIndex];
-    // console.log(currentStepIndex, currentStep)
 
     if (currentStep) {
       const isAuthorized = currentStep.signers.some((s: any) => {
-
         const matchUnit = !s.unit || s.unit._id.toString() === user.unit?.toString();
         const matchPosition = !s.position || s.position._id.toString() === user.position?.toString();
-
         return matchUnit && matchPosition;
       });
 
@@ -387,9 +411,11 @@ export class DocumentsService {
       }
     }
 
-    // 3. KÝ PDF – ĐÃ SỬA TẤT CẢ LỖI NHỎ
+    // 3. KÝ PDF – TẠO FILE MỚI, XÓA FILE CŨ SAU KHI THÀNH CÔNG
     const pdfPath = join(getRootPath(), `public/files/documents/${document_filename}`);
-    const outputPath = join(getRootPath(), `public/files/documents/${document_filename}`);
+    const timestamp = Date.now();
+    const newFilename = `${document_filename.replace('.pdf', '')}-signed-${timestamp}.pdf`;
+    const outputPath = join(getRootPath(), `public/files/documents/${newFilename}`);
     const p12Path = join(getRootPath(), `public/files/certs/${p12_filename}`);
 
     if (!fs.existsSync(pdfPath)) throw new Error('Không tìm thấy file PDF');
@@ -400,7 +426,7 @@ export class DocumentsService {
 
     const certInfo = extractInfoFromP12(p12Buffer, password);
 
-    const pdfDoc = await PDFDocument.load(pdfBuffer);
+    const pdfDoc = await PDFDocument.load(pdfBuffer, { forIncrementalUpdate: true });
     pdfDoc.registerFontkit(fontkit);
 
     const fontPath = join(getRootPath(), 'public/fonts/TIMES.TTF');
@@ -411,7 +437,7 @@ export class DocumentsService {
     const pages = pdfDoc.getPages();
     const pageToSign = pages[page];
 
-    // Vẽ khung
+    // Vẽ khung + text + tick xanh (như cũ)
     pageToSign.drawRectangle({
       x: SIGN_X,
       y: SIGN_Y,
@@ -421,20 +447,31 @@ export class DocumentsService {
       borderWidth: 1,
     });
 
-    // Vẽ chữ
     const dateStr = new Date().toISOString().split('T')[0];
-    const text = `Ký số bởi: ${certInfo.commonName}\nEmail: ${certInfo.email}\nĐơn vị: ${certInfo.organization}\nNgày: ${dateStr}`;
+    const text = `Ký số bởi: ${certInfo.commonName}\nNgày: ${dateStr}`;
 
     pageToSign.drawText(text, {
-      x: SIGN_X + 5,
-      y: SIGN_Y + 55,
+      x: Number(SIGN_X) + 5,
+      y: Number(SIGN_Y) + SIGN_HEIGHT / 2,
       size: 10,
       font: customFont,
       color: rgb(0, 0, 0),
       lineHeight: 12,
     });
 
-    // Tạo placeholder – SỬA ĐÚNG: widgetRect phải là mảng [x, y, x+width, y+height]
+    // Thêm tick xanh (ảnh PNG như anh muốn)
+    const tickImageBytes = fs.readFileSync(join(getRootPath(), 'public/images/tick-green.png'));
+    const tickImage = await pdfDoc.embedPng(tickImageBytes);
+
+    pageToSign.drawImage(tickImage, {
+      x: Number(SIGN_X) + SIGN_WIDTH - 35,
+      y: Number(SIGN_Y) + SIGN_HEIGHT / 2 - 15,
+      width: 30,
+      height: 30,
+    });
+
+    const uniqueWidgetName = `Sig${user._id.toString().slice(-6)}${Date.now().toString().slice(-4)}`;
+
     pdflibAddPlaceholder({
       pdfDoc,
       pdfPage: pageToSign,
@@ -442,34 +479,49 @@ export class DocumentsService {
       contactInfo: certInfo.email || 'noreply@example.com',
       name: removeVietnameseTones(certInfo.commonName),
       location: 'Viet Nam',
-      widgetRect: [SIGN_X, SIGN_Y, SIGN_X + SIGN_WIDTH, SIGN_Y + SIGN_HEIGHT], // ← SỬA ĐÚNG
+      widgetRect: [SIGN_X, SIGN_Y, SIGN_X + SIGN_WIDTH, SIGN_Y + SIGN_HEIGHT],
+      widgetName: uniqueWidgetName
     });
 
-    const pdfWithPlaceholder = Buffer.from(await pdfDoc.save({ useObjectStreams: false }));
+    const pdfWithPlaceholderDraw = await pdfDoc.saveAndContinue();
 
-    // ← SỬA ĐÚNG: signpdf.sign (không phải signPdf.sign)
     const signer = new P12Signer(p12Buffer, { passphrase: password });
-    const signedPdf = await signpdf.sign(pdfWithPlaceholder, signer);
+    // const signedPdf = await signpdf.sign(pdfWithPlaceholder, signer);
+    const signedPdfDraw = await signpdf.sign(pdfWithPlaceholderDraw, signer);
 
-    // Ghi đè file
-    fs.writeFileSync(outputPath, signedPdf);
+    // LƯU FILE MỚI
+    // fs.writeFileSync(outputPath, signedPdf, { encoding: 'binary' });
+    fs.writeFileSync(outputPath, signedPdfDraw, { encoding: 'binary' });
 
-    // 4. CẬP NHẬT WORKFLOW
+    // XÓA FILE CŨ (sau khi lưu file mới thành công)
+    try {
+      fs.unlinkSync(pdfPath); // Xóa file cũ để tiết kiệm tài nguyên
+    } catch (err) {
+      console.error('Không xóa được file cũ:', err);
+    }
+
+
     const totalSteps = (document.workflow as any)?.steps?.length || 0;
     const nextStep = currentStepIndex + 1;
     const newStatus = nextStep >= totalSteps ? 'đã hoàn thành' : 'đang trình ký';
-    const newVersion = (document.cur_version || 0);
 
-    // Sửa lỗi updateOne – thêm arrayFilters nếu cần
+
+    // Tách cur_link theo dấu & để lấy phần đầu (không bao gồm name)
+    const parts = cur_link!.split('&');
+    const baseLink = parts[0]; // Phần 0: http://localhost:3000/files?folder=documents
+
+
+    // Ghép link mới
+    const newLink = `${baseLink}&name=${newFilename}`;
+
     await this.documentModel.updateOne(
       { _id: id },
       {
         $set: {
-          cur_link: cur_link || document.cur_link,
+          cur_link: newLink,
           cur_step: nextStep,
           cur_status: newStatus,
-          cur_version: newVersion,
-        } as any,
+        },
         $push: {
           [`info.${document.cur_version}.signers`]: {
             user: user._id,
@@ -478,15 +530,19 @@ export class DocumentsService {
           }
         }
       },
+      {
+        arrayFilters: [{ 'i.version': document.cur_version }]
+      }
     );
 
     return {
       message: 'Ký số thành công và quy trình đã được cập nhật!',
       data: {
         documentId: id,
-        version: newVersion,
+        version: document.cur_version,
         step: nextStep,
         status: newStatus,
+        newLink,
       },
     };
   }
@@ -509,13 +565,13 @@ export class DocumentsService {
     }
 
     // 2. KHÔNG CHO REJECT NẾU USER ĐÃ KÝ Ở BẤT KỲ BƯỚC NÀO (có tên trong info.signers)
-    const hasSigned = document.info.some(infoItem =>
-      infoItem.signers.some(signer => signer.user?.toString() === user._id.toString())
-    );
+    // const hasSigned = document.info.some(infoItem =>
+    //   infoItem.signers.some(signer => signer.user?.toString() === user._id.toString())
+    // );
 
-    if (hasSigned) {
-      throw new BadRequestException('Bạn đã ký văn bản này rồi, không thể từ chối');
-    }
+    // if (hasSigned) {
+    //   throw new BadRequestException('Bạn đã ký văn bản này rồi, không thể từ chối');
+    // }
 
     // PUSH USER VÀO SIGNERS NHƯ "ĐÃ KÝ" (nhưng reject)
     const rejectSigner = {
